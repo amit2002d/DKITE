@@ -54,6 +54,7 @@ def highlight_single_gain(value):
         color = 'rgba(63, 255, 0,1)'  
     return 'background-color: %s' % color
 
+@st.cache_data(ttl = 25200)
 def fetch_data_from_google_sheets_d(_secrets):
     with st.spinner("Fetching data from Google Sheets..."):
         try:
