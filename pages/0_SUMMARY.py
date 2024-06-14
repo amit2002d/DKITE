@@ -86,7 +86,14 @@ def get_cmp_price(cmp_symbol):
     except Exception as e:
         st.error(f"Failed to fetch cmp price: {e}")
         return None
+    
+def lifetime_high(ticker_symbol):
+    stock_data = yf.Ticker(ticker_symbol + ".NS")
+    historical_prices = stock_data.history(period="max")["High"]
 
+    lifetime_high_price = historical_prices.max()
+
+    return lifetime_high_price
 
 if 'total_invested' not in st.session_state:
     st.session_state.total_invested = 0
@@ -111,7 +118,7 @@ while True:
     investment_total = pd.DataFrame(columns=['Total Investment','Current Value','ROI','Gain'])
     investment_individual = pd.DataFrame(columns=["ETF",'Buy Avg', 'Qty','CMP', 'ROI','Gain','Total Investment','Current Value'])
     sell = pd.DataFrame(columns=['ETF', 'Price', 'Qty.', 'Age', 'CMP', 'Gain%', 'Amount'])
-    buy = pd.DataFrame(columns=['ETF','Down%', 'Down_LB%', 'CMP', 'LB','Amount', 'Qty'])
+    buy = pd.DataFrame(columns=['ETF','Down%', 'Down_LB%',"LTH", 'Down_LTH%', 'CMP', 'LB','Amount', 'Qty'])
     if time.time() - st.session_state.last_analysis_time >= 0:
         st.session_state.last_analysis_time = time.time()
         stocks = list(st.session_state.all_data.keys())
@@ -151,8 +158,9 @@ while True:
             amount = int(amt + variable)
             qty = math.ceil(amount / cmp)
             down_lb = round((cmp - last_buy)/last_buy * 100,2) if last_buy != 0 else 0
-            if down_lb <= -2.5 and pnl < 0:
-                new_res = pd.DataFrame({'ETF': [stock], 'Down%':[round(pnl*100,2)], 'Down_LB%':[down_lb],'CMP':[cmp], 'Amount': [amount], 'Qty': [qty], 'LB': [last_buy]})
+            lth = lifetime_high(st.session_state.secrets["connections"]["gsheets"]["worksheets"][stock])
+            if (down_lb <= -2.5 and pnl < 0) or round((cmp - lth)/lth * 100,2) <= -4:
+                new_res = pd.DataFrame({'ETF': [stock], 'Down%':[round(pnl*100,2)], "Down_LTH%": [round((cmp - lth)/lth * 100,2)], "LTH": [lth], 'Down_LB%':[down_lb],'CMP':[cmp], 'Amount': [amount], 'Qty': [qty], 'LB': [last_buy]})
                 buy = pd.concat([buy,new_res],ignore_index=True)
             if buy.empty:
                 total = 0
