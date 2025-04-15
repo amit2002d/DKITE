@@ -133,14 +133,14 @@ while True:
             up_df['CMP'] = round(get_cmp_price(st.session_state.secrets["connections"]["gsheets"]["worksheets"][stock]),2)
             up_df['Gain%'] = round((((up_df['Qty.'] * up_df['CMP']) - (up_df['Price'] * up_df['Qty.'])) / (up_df['Price'] * up_df['Qty.'])) * 100,2)
             up_df['Amount'] = (up_df['Qty.'] * up_df['CMP']) - (up_df['Price'] * up_df['Qty.'])
-            filtered_rows = up_df[up_df['Gain%'] > 50 ] # sell gain condition
+            filtered_rows = up_df[up_df['Gain%'] > 3] # sell gain condition
             for etf_name in filtered_rows['ETF'].unique():
                 etf_rows = filtered_rows[filtered_rows['ETF'] == etf_name]
-                etf_rows.iloc[1:, 3] = ''  # Set ETF name to empty string for all rows except the first
+                etf_rows.loc[etf_rows.index[1:], 'ETF'] = ''  # Set ETF name to empty string for all rows except the first
                 sell = pd.concat([sell, etf_rows], ignore_index=True)
             st.session_state.all_data[stock]['Qty.'] = st.session_state.all_data[stock]['Qty.'].str.replace(',', '').astype(float) if st.session_state.all_data[stock]['Qty.'].dtype == 'object' else st.session_state.all_data[stock]['Qty.']
             cmp = get_cmp_price(st.session_state.secrets["connections"]["gsheets"]["worksheets"][stock])
-            total_value =  ((st.session_state.all_data[stock]['Qty.']) * (st.session_state.all_data[stock]['Price']).astype(float)).sum() if not st.session_state.all_data[stock].empty else 0
+            total_value =  ((st.session_state.all_data[stock]['Qty.']) * (st.session_state.all_data[stock]['Price']).astype(float)).sum() if not st.session_state.all_data[stock].empty else 1
             total_invested += total_value
             current_value =  ((st.session_state.all_data[stock]['Qty.']) * cmp).sum() if not st.session_state.all_data[stock].empty else 0
             total_current_value += current_value
@@ -151,7 +151,7 @@ while True:
             pnl = (cmp-buy_price)/buy_price if buy_price != 0 else 0
             multi_fac = -1*round(pnl*1000,2)
             if st.session_state.user == 'Amit' or st.session_state.user == "Deepti":
-                    amt = 50000
+                    amt = 35000
             else:
                 amt = 2500
             variable = 0
@@ -159,10 +159,10 @@ while True:
             qty = math.ceil(amount / cmp)
             down_lb = round((cmp - last_buy)/last_buy * 100,2) if last_buy != 0 else 0
             lth = lifetime_high(st.session_state.secrets["connections"]["gsheets"]["worksheets"][stock])
-            if down_lb <= -5 and pnl <= 0: # last buy se kitna neeche
+            if down_lb <= -3 and pnl < 0: # last buy se kitna neeche
                 new_res = pd.DataFrame({'ETF': [stock], 'Down%':[round(pnl*100,2)], "Down_LTH%": [round((cmp - lth)/lth * 100,2)], "LTH": [lth], 'Down_LB%':[down_lb],'CMP':[cmp], 'Amount': [amount], 'Qty': [qty], 'LB': [last_buy]})
                 buy = pd.concat([buy,new_res],ignore_index=True)
-            elif last_buy == 0 and round((cmp - lth)/lth * 100,2) <= -50: # LTH se  kitna neeche
+            elif last_buy == 0 and round((cmp - lth)/lth * 100,2) <= -5: # LTH se  kitna neeche
                 new_res = pd.DataFrame({'ETF': [stock], 'Down%':[round(pnl*100,2)], "Down_LTH%": [round((cmp - lth)/lth * 100,2)], "LTH": [lth], 'Down_LB%':[down_lb],'CMP':[cmp], 'Amount': [amount], 'Qty': [qty], 'LB': [last_buy]})
                 buy = pd.concat([buy,new_res],ignore_index=True)
             if buy.empty:
@@ -172,6 +172,15 @@ while True:
         format_dict2 = {'Price': '{:.2f}', 'Qty.': '{:.2f}', 'CMP': '{:.2f}', 'Gain%': '{:.2f}', 'Amount': '{:.2f}', 'Buy Value': '{:.2f}', 'Current Value': '{:.2f}'}
         if not sell.empty:
             sell.drop(columns=['Date'], axis = 1, inplace=True) 
+        resultant_df_round = sell.round(2)
+        # Ensure numerical columns are actually numeric
+        cols_to_numeric = ['Price', 'Qty.', 'CMP', 'Gain%', 'Amount']
+        for col_name in cols_to_numeric:
+            if col_name in sell.columns:
+                sell[col_name] = pd.to_numeric(sell[col_name], errors='coerce')  # Coerce will convert non-numeric to NaN
+        # Optional: Fill NaNs
+        sell[cols_to_numeric] = sell[cols_to_numeric].fillna(0)
+        # Format and style
         resultant_df_round = sell.round(2)
         styled_res_df = resultant_df_round.style.format(format_dict2).apply(highlight_gain_condition3, subset=['Gain%'], axis=0)
         investment_total = pd.concat([investment_total,pd.DataFrame({'Total Investment':[total_invested],'Current Value':[total_current_value],'ROI':[round(((total_current_value - total_invested)/total_invested) * 100,2)],'Gain':[round(total_current_value - total_invested,2)]})],ignore_index=True)
