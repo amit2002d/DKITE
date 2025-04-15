@@ -7,7 +7,6 @@ from datetime import datetime
 import math
 import datetime
 from streamlit_extras.switch_page_button import switch_page
-
 # secrets = toml.load('secrets.toml')
 if "secrets" not in st.session_state:
     st.session_state.secrets = st.secrets
@@ -55,7 +54,6 @@ def highlight_single_gain(value):
         color = 'rgba(63, 255, 0,1)'  
     return 'background-color: %s' % color
 
-@st.cache_data(ttl = 25200)
 def fetch_data_from_google_sheets_d(_secrets):
     with st.spinner("Fetching data from Google Sheets..."):
         try:
@@ -74,17 +72,12 @@ def fetch_data_from_google_sheets_d(_secrets):
             spreadsheet_key = _secrets["connections"]["gsheets_d"]["spreadsheet"]
             
             all_data = {}
-            cnt = 0
             for cmp_symbol in _secrets["connections"]["gsheets"]["worksheets"].values():
                 sheet = client.open_by_key(spreadsheet_key).worksheet(cmp_symbol)
-                cnt += 1
-                if cnt % 15 == 0:
-                    time.sleep(105)
                 data = sheet.get_all_values()
                 df = pd.DataFrame(data)
                 df = pd.DataFrame(data[1:], columns=data[0])
                 all_data[cmp_symbol] = df
-                
             
             return all_data
         
@@ -153,7 +146,6 @@ def fetch_data_from_google_sheets_h(_secrets):
         except Exception as e:
             st.error(f"An error occurred: {e}")
             st.stop()
-            
 @st.cache_data(ttl = 25200)
 def fetch_data_from_google_sheets(_secrets):
     with st.spinner("Fetching data from Google Sheets..."):
